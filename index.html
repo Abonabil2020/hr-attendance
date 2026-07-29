@@ -354,12 +354,14 @@ body,#root{font-family:'Cairo',sans-serif;direction:rtl;background:var(--bg);col
 </div>
 
 <div class="mbar">
-  <button class="mnav" id="btn-next">الشهر التالي ❮</button>
+  <!-- اليمين: الشهر السابق للعودة للماضي -->
+  <button class="mnav" id="btn-prev">❯ الشهر السابق</button>
   <div style="text-align:center">
     <div class="mlbl" id="mlbl">...</div>
     <div class="msub" id="msub">...</div>
   </div>
-  <button class="mnav" id="btn-prev">❯ الشهر السابق</button>
+  <!-- اليسار: الشهر التالي للتقدم للمستقبل -->
+  <button class="mnav" id="btn-next">الشهر التالي ❮</button>
 </div>
 
 <div class="srow">
@@ -783,14 +785,17 @@ function bindModalEvents(){
 }
 
 function bindStatic(){
+  // زر الانتقال للشهر السابق (الماضي - اليمين)
   document.getElementById('btn-prev').addEventListener('click',()=>{
     if(mo===0){mo=11;yr--}else mo--;
     listenPeriodDB();
   });
+  // زر الانتقال للشهر التالي (المستقبل - اليسار)
   document.getElementById('btn-next').addEventListener('click',()=>{
     if(mo===11){mo=0;yr++}else mo++;
     listenPeriodDB();
   });
+
   document.getElementById('btn-dark').addEventListener('click',()=>{
     dark=!dark;
     document.getElementById('root').classList.toggle('dk',dark);
