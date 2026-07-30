@@ -175,6 +175,30 @@ body,#root{font-family:'Cairo',sans-serif;direction:rtl;background:var(--bg);col
 .mc-dayname { font-size: 11px; font-weight: 800; color: var(--tx3); }
 .mc-badge { font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 20px; }
 
+/* Quick Checkbox in Card Header (Purely Reminding) */
+.card-chk-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 4px;
+  border-top: 1px dashed var(--bdr);
+}
+.card-chk-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--tx2);
+  cursor: pointer;
+}
+.card-chk {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--blue);
+  cursor: pointer;
+}
+
 .mc-time-display {
   display: flex;
   align-items: center;
@@ -232,6 +256,32 @@ body,#root{font-family:'Cairo',sans-serif;direction:rtl;background:var(--bg);col
   width: 100%; padding: 9px; border-radius: 10px; border: 1px solid var(--bdr2);
   background: var(--surf2); color: var(--tx);
   font-family: 'Cairo', sans-serif; font-size: 14px; font-weight: 800; outline: none;
+}
+
+.chk-box-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surf2);
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--bdr2);
+  margin-bottom: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+.chk-box-wrap input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--blue);
+  cursor: pointer;
+}
+.chk-box-wrap label {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--tx);
+  cursor: pointer;
+  margin: 0;
 }
 
 .modal-footer-btns {
@@ -354,13 +404,11 @@ body,#root{font-family:'Cairo',sans-serif;direction:rtl;background:var(--bg);col
 </div>
 
 <div class="mbar">
-  <!-- اليمين: الشهر السابق للعودة للماضي -->
   <button class="mnav" id="btn-prev">❯ الشهر السابق</button>
   <div style="text-align:center">
     <div class="mlbl" id="mlbl">...</div>
     <div class="msub" id="msub">...</div>
   </div>
-  <!-- اليسار: الشهر التالي للتقدم للمستقبل -->
   <button class="mnav" id="btn-next">الشهر التالي ❮</button>
 </div>
 
@@ -391,6 +439,11 @@ body,#root{font-family:'Cairo',sans-serif;direction:rtl;background:var(--bg);col
       <button class="modal-close" id="m-close">✕</button>
     </div>
     <div class="modal-body">
+      <div class="chk-box-wrap">
+        <input type="checkbox" id="m-remind">
+        <label for="m-remind">تم إضافته (تذكير)</label>
+      </div>
+
       <div class="ig">
         <label>نوع اليوم</label>
         <select id="m-dt"></select>
@@ -414,7 +467,6 @@ body,#root{font-family:'Cairo',sans-serif;direction:rtl;background:var(--bg);col
         <select id="m-hm"></select>
       </div>
       
-      <!-- أزرار التحكم في أسفل النافذة -->
       <div class="modal-footer-btns">
         <button class="done-btn" id="m-done" type="button">تم</button>
         <button class="del-btn-sm" id="m-del" type="button" title="مسح">🗑️</button>
@@ -539,7 +591,7 @@ async function saveRowToDB(dk, rowData){
   const period = pk();
   const docRef = doc(db, 'attendance_records', period, 'days', dk);
 
-  if(!rowData || (!rowData.ti && !rowData.to && !rowData.type && !rowData.hm)){
+  if(!rowData || (!rowData.ti && !rowData.to && !rowData.type && !rowData.hm && !rowData.remind)){
     await deleteDoc(docRef);
     setSyncStatus('ok','متزامن • Firebase');
     return;
@@ -607,7 +659,8 @@ function openModal(dk, dateObj, dow){
   const dt = row.type || dftType(dow);
   
   document.getElementById('m-title').textContent = `${ARD[dow]} ${dateObj.getDate()} ${ARM[dateObj.getMonth()]}`;
-  
+  document.getElementById('m-remind').checked = !!row.remind;
+
   const mDt = document.getElementById('m-dt');
   mDt.innerHTML = DT.map(t=>`<option value="${t.v}"${dt===t.v?' selected':''}>${t.l}</option>`).join('');
   
@@ -647,6 +700,7 @@ function render(){
   let html='';
   days.forEach(({date,dk,dow})=>{
     const row=rows[dk]||{};
+    const isRemind = !!row.remind; // العلامة التذكيرية فقط
     const dt=row.type||dftType(dow);
     const isOff=dt==='weekly_off'||dt==='official_off';
     const isMission=dt==='mission';
@@ -655,6 +709,7 @@ function render(){
     const isToday=dk===todayKey;
     let calc={delay:0,early:0,extra:0,dbl:0};
 
+    // الحسابات شغال طبيعي بغض النظر عن علامة التذكير
     if(isOff&&hasAtt){
       const dur=calcDurationOnly(row,sett.cut,sett.bi);
       if(row.hm==='replace'){
@@ -694,6 +749,14 @@ function render(){
       </div>
       ${timeDisplay}
       ${chips.length>0?`<div class="mc-chips">${chips.join('')}</div>`:''}
+      
+      <!-- Checkbox التذكيري المباشر على كارت اليوم -->
+      <div class="card-chk-wrap" onclick="event.stopPropagation()">
+        <label class="card-chk-label" for="chk-${dk}">
+          <input type="checkbox" id="chk-${dk}" class="card-chk" data-dk="${dk}" ${isRemind?'checked':''}>
+          <span>تم إضافته</span>
+        </label>
+      </div>
     </div>`;
   });
 
@@ -703,30 +766,36 @@ function render(){
   document.getElementById('t-dl').textContent=fmtD(tDl)||'--';
   document.getElementById('t-el').textContent=fmtD(tEl)||'--';
 
-  // حساب القيمة المالية للإضافي
   const doubleHours = (tEx * 2) / 60;
   const rate = Number(sett.rate || 0);
   const totalValue = doubleHours * rate;
   document.getElementById('t-val').textContent = totalValue > 0 ? totalValue.toLocaleString('ar-EG', {maximumFractionDigits: 1}) + ' ج.م' : '0 ج.م';
 
-  // حساب ساعات الـ HR بناءً على المبلغ المحوّل
   const hrPay = Number(sett.hrpay || 0);
   const cardHr = document.getElementById('card-hr');
   if(hrPay > 0 && rate > 0) {
     cardHr.style.display = 'flex';
-    const hrDoubleHours = hrPay / rate; // الساعات المعادلة بعد الضرب في 2
-    const hrNormHours = hrDoubleHours / 2; // الساعات الفعلية قبل الضرب
+    const hrDoubleHours = hrPay / rate;
+    const hrNormHours = hrDoubleHours / 2;
     document.getElementById('t-hrhrs').textContent = `${hrNormHours.toFixed(1)}س (عادية) / ${hrDoubleHours.toFixed(1)}س (×2)`;
   } else {
     cardHr.style.display = 'none';
   }
 
-  // Bind Card Clicks
   container.querySelectorAll('.mini-card').forEach(card=>{
     card.addEventListener('click',()=>{
       const dk = card.dataset.dk;
       const dayObj = days.find(d=>d.dk===dk);
       if(dayObj) openModal(dk, dayObj.date, dayObj.dow);
+    });
+  });
+
+  container.querySelectorAll('.card-chk').forEach(chk=>{
+    chk.addEventListener('change', (e)=>{
+      e.stopPropagation();
+      const dk = chk.dataset.dk;
+      rows[dk] = { ...(rows[dk]||{}), remind: chk.checked };
+      schedSave(dk, rows[dk]);
     });
   });
 }
@@ -748,11 +817,13 @@ function bindModalEvents(){
     const to = document.getElementById('m-to').value;
     const type = document.getElementById('m-dt').value;
     const hm = document.getElementById('m-hm').value;
+    const remind = document.getElementById('m-remind').checked;
 
-    rows[activeEditDk] = { ...(rows[activeEditDk]||{}), ti, to, type, hm };
+    rows[activeEditDk] = { ...(rows[activeEditDk]||{}), ti, to, type, hm, remind };
     schedSave(activeEditDk, rows[activeEditDk]);
   };
 
+  document.getElementById('m-remind').addEventListener('change', saveModal);
   document.getElementById('m-ti').addEventListener('change', saveModal);
   document.getElementById('m-to').addEventListener('change', saveModal);
   document.getElementById('m-dt').addEventListener('change', ()=>{ saveModal(); render(); });
@@ -785,12 +856,10 @@ function bindModalEvents(){
 }
 
 function bindStatic(){
-  // زر الانتقال للشهر السابق (الماضي - اليمين)
   document.getElementById('btn-prev').addEventListener('click',()=>{
     if(mo===0){mo=11;yr--}else mo--;
     listenPeriodDB();
   });
-  // زر الانتقال للشهر التالي (المستقبل - اليسار)
   document.getElementById('btn-next').addEventListener('click',()=>{
     if(mo===11){mo=0;yr++}else mo++;
     listenPeriodDB();
